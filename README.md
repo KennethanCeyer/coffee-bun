@@ -1,4 +1,4 @@
-<h1 align="center">bire</h1>
+<h1 align="center">bundle</h1>
 
 <p align="center">Initial environment automated management tool by cli-interface</p>
 
@@ -11,10 +11,10 @@
 ### v0.0.1
 
 - support MacOS platform first
-- install with `bire.yml` file
-- install special package with bire github entrypoint
+- install with `bundle.yml` file
+- install special package with bundle github entrypoint
 - update special package with specific version
-- freeze package info to bire.yml
+- freeze package info to bundle.yml
 - install both cli, application tools
 - support to select the specific package, if the user wants
 - support programming language by multiple choices
