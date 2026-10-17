@@ -1,0 +1,87 @@
+name: Cross-Platform CI & Installation Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-and-install:
+    name: Build, Test & Install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Run Static Analysis (go vet)
+        run: go vet ./...
+
+      - name: Run Unit Tests across All Packages
+        run: go test -v ./...
+
+      - name: Run Bootstrap Installer (macOS & Linux)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ./install.sh
+          ./install.sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Run Bootstrap Installer (Windows PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./install.ps1
+          "$HOME\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Verify Installed CLI Commands (version, help, check, doctor)
+        run: |
+          bun version
+          bun --help
+          bun check
+          bun doctor
+
+      - name: Verify Real Package Installation on Each OS
+        shell: bash
+        run: |
+          # 1. Install cross-platform Vim runtime, MesloLGS Nerd Fonts, and Zoxide via OS package manager
+          bun install vim-runtime meslo-font zoxide
+
+          # 2. Verify installed status via bun check
+          bun check
+          bun check | grep -E "\[OK\].*Ultimate Vim Runtime"
+          bun check | grep -E "\[OK\].*MesloLGS NF Font"
+          bun check | grep -E "\[OK\].*Zoxide"
+
+          # 3. Verify custom YAML configuration installation & verification
+          cat << 'EOF' > ci-bun.yaml
+          version: "1.0"
+          hooks:
+            pre_install: "echo pre-install-ok"
+            post_install: "echo post-install-ok"
+          packages:
+            - id: ci-custom-tool
+              name: "CI Custom Tool"
+              description: "End-to-end custom YAML installation test"
+              category: "CI Verification"
+              type: "script"
+              check_file: "~/ci-tool-installed.marker"
+              install_cmd: "echo installed > ~/ci-tool-installed.marker"
+          EOF
+
+          bun -C ci-bun.yaml install ci-custom-tool
+          bun -C ci-bun.yaml check | grep -F "CI Custom Tool"
+          rm -f ci-bun.yaml ~/ci-tool-installed.marker
+
