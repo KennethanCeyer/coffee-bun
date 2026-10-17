@@ -1,7 +1,16 @@
+<pre align="center">
+      ▄▄██████▄▄         ▄▀▀▀ ▄▀▀▄ █▀▀▀ █▀▀▀ █▀▀▀ █▀▀▀
+   ▄██▀▀▀▀▀▀▀▀▀▀██▄      █    █  █ █▀▀  █▀▀  █▀▀  █▀▀ 
+  ██▀ ▄▄██████▄▄ ▀██     ▀▄▄▄ ▀▄▄▀ ▀    ▀    ▀▄▄▄ ▀▄▄▄
+ ██▀ ██▀▀▀▀▀▀▀▀██ ▀██    █▀▀▄ █  █ █▄ █
+▄██▄▄████████████▄▄██▄   █▀▀▄ █  █ █ ▀█
+ ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀    ▀▀▀   ▀▀  ▀  ▀
+</pre>
+
 <h1 align="center">Coffee Bun</h1>
 
 <p align="center">
-  <strong>A friendly, automated cross-platform workstation setup and maintenance tool written in Go</strong>
+  <strong>A friendly, automated cross-platform workstation setup and maintenance tool</strong>
 </p>
 
 <p align="center">
@@ -23,7 +32,7 @@ So why **Coffee Bun**?
 
 Because setting up your development workstation should not feel like troubleshooting a broken build. It should be a moment where you step away from the keyboard, brew a fresh cup of hot coffee, grab a warm coffee bun, and relax.
 
-While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in the background across **macOS**, **Linux**, and **Windows**.
+While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in the background across **macOS**, **Linux** (including **WSL**), and **Windows** (**PowerShell**).
 
 ---
 
@@ -32,25 +41,25 @@ While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in th
 | Platform | Native Package Managers | Fonts Directory | Supported Features |
 | :--- | :--- | :--- | :--- |
 | **macOS** (`darwin`) | Homebrew (`brew` formulae & casks), `xcode-select` | `~/Library/Fonts` | Full suite + iTerm2 + Chrome Default Browser + `.zshrc` |
-| **Linux** (`linux`) | `apt-get`, `dnf`, `apk`, or Linuxbrew (`brew`) | `~/.local/share/fonts` | Toolchains, Fonts, OMZ/p10k, Vim, Languages, Cloud & Modern CLIs, Desktop Apps |
-| **Windows** (`windows`) | `winget` & Chocolatey (`choco`) | `%LOCALAPPDATA%\Microsoft\Windows\Fonts` | Git, Fonts, Vim Runtime, Languages, Cloud & Modern CLIs, VS Code, Chrome |
+| **Linux & WSL** (`linux`) | `apt-get`, `dnf`, `apk`, or Linuxbrew (`brew`) | `~/.local/share/fonts` | Toolchains, Fonts, OMZ/p10k, Vim, Languages, Cloud & Modern CLIs, Desktop Apps |
+| **Windows** (`windows`) | `winget` & Chocolatey (`choco`) via PowerShell | `%LOCALAPPDATA%\Microsoft\Windows\Fonts` | Git, Fonts, Vim Runtime, Languages, Cloud & Modern CLIs, VS Code, Chrome |
 
 ---
 
 ## Features
 
-- **Automatic Environment Inspection**: Probes all tools, versions, and application paths concurrently on launch, automatically filtering packages to those supported on your current OS.
+- **Automatic Environment & Update Inspection**: Probes all tools, installed versions, and available package updates concurrently on launch, automatically pre-selecting missing or outdated packages.
 - **Interactive Tree UI with Vim Navigation**:
   - Organizes packages into logical, foldable categories (`[-]` unfolded / `[+]` folded).
   - Full **Vim-style navigation**: `j`/`k`, `g`/`G` (jump to top/bottom), `Ctrl+d`/`Ctrl+u` or `J`/`K` (half-page scroll), `H`/`M`/`L` (screen top/middle/bottom), `h`/`l` (fold/unfold or jump to parent category), `o`/`c` or `f`/`z` (expand/collapse all groups), and `?` (in-app keyboard shortcuts manual).
 - **Focusable Action Bar**:
-  - Bottom action bar with `[ < Exit ]` and `[ Start Install (N) > ]` buttons navigable via `Tab`, `Shift+Tab`, or arrow keys.
+  - Bottom action bar with `[ < Exit ]` and `[ Start Install (N) > ]` / `[ Update Selected (N) > ]` buttons navigable via `Tab`, `Shift+Tab`, or arrow keys.
 - **Concurrent Installations with Live Stream Output**:
-  - Independent Git clones, font downloads, and package manager installations run concurrently with real-time progress streaming.
+  - Independent Git clones, font downloads, and package manager installations run concurrently with real-time progress streaming and a smooth shimmering status indicator.
 - **Friendly Prerequisite & Sudo Watcher**:
   - When manual or elevated actions are needed, Coffee Bun explains **Why** the action is needed, **How** to complete it, and provides the exact copyable **Cmd**, polling every 2 seconds to resume automatically once complete.
-- **System Diagnostics (`bun doctor`) & One-Stop Upgrader (`bun update`)**:
-  - Inspects your OS environment, package manager health, `.zshrc` theme, `zoxide` hook, and `code` CLI link.
+- **Comprehensive System Diagnostics (`bun doctor`) & One-Stop Upgrader (`bun update`)**:
+  - Inspects OS health, locale, network connectivity, package managers, Git identity, SSH keys, Nerd Fonts, shell hooks, language runtimes, and available package updates.
 
 ---
 
@@ -65,10 +74,10 @@ While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in th
 | | [MesloLGS NF Font](https://github.com/romkatv/powerlevel10k-media) | Powerlevel10k Nerd Font installed into your OS user fonts directory |
 | | iTerm2 Font Setting | Configures default profile to `MesloLGS-NF-Regular 16` (macOS) |
 | | [Brogrammer Theme](https://github.com/mbadolato/iTerm2-Color-Schemes) | High-contrast color preset for iTerm2 (macOS) |
-| | [Oh My Zsh](https://github.com/ohmyzsh/ohmyzsh) | Community-driven zsh configuration framework (macOS & Linux) |
-| | [Powerlevel10k](https://github.com/romkatv/powerlevel10k) | Fast, flexible prompt theme (macOS & Linux) |
-| | [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) | Fish-shell style command autocompletion suggestions (macOS & Linux) |
-| | [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) | Real-time command syntax highlighting (macOS & Linux) |
+| | [Oh My Zsh](https://github.com/ohmyzsh/ohmyzsh) | Community-driven zsh configuration framework (macOS & Linux/WSL) |
+| | [Powerlevel10k](https://github.com/romkatv/powerlevel10k) | Fast, flexible prompt theme (macOS & Linux/WSL) |
+| | [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) | Fish-shell style command autocompletion suggestions (macOS & Linux/WSL) |
+| | [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) | Real-time command syntax highlighting (macOS & Linux/WSL) |
 | **Cloud & DevOps CLIs** | [AWS CLI](https://aws.amazon.com/cli/) | Unified command-line interface for AWS services |
 | | [Google Cloud SDK](https://cloud.google.com/sdk) | `gcloud` CLI tools and libraries |
 | | [Azure CLI](https://learn.microsoft.com/cli/azure/) | `az` command-line tools for Microsoft Azure |
@@ -81,7 +90,7 @@ While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in th
 | | [GCC / Clang](https://gcc.gnu.org/) | GNU Compiler Collection & system C/C++ toolchain |
 | | [Node.js](https://nodejs.org/) | JavaScript runtime engine bundled with `npm` |
 | **Modern CLI Tools** | [zoxide](https://github.com/ajeetdsouza/zoxide) | Smarter `cd` command with frecency directory jumping |
-| | [htop](https://htop.dev/) | Interactive process viewer and resource monitor (macOS & Linux) |
+| | [htop](https://htop.dev/) | Interactive process viewer and resource monitor (macOS & Linux/WSL) |
 | | [fzf](https://github.com/junegunn/fzf) | Command-line fuzzy finder with shell keybindings |
 | | [ripgrep](https://github.com/BurntSushi/ripgrep) | Ultra-fast recursive line search (`rg`) |
 | | [eza](https://github.com/eza-community/eza) | Modern, colorful replacement for `ls` |
@@ -95,7 +104,7 @@ While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in th
 
 ## Installation
 
-### 1. macOS & Linux (One-Line Bootstrap)
+### 1. macOS, Linux & WSL (One-Line Bootstrap)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.sh | bash
@@ -115,7 +124,7 @@ irm https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.ps1
 
 ```bash
 git clone https://github.com/KennethanCeyer/coffee-bun.git
-cd bundle
+cd coffee-bun
 make install
 ```
 
@@ -140,11 +149,12 @@ bun
    ██▀ ██▀▀▀▀▀▀▀▀██ ▀██    █▀▀▄ █  █ █▄ █
   ▄██▄▄████████████▄▄██▄   █▀▀▄ █  █ █ ▀█
    ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀    ▀▀▀   ▀▀  ▀  ▀
-
-  > [-] [shell] Terminal & Shell (iTerm2, Fonts, OMZ, p10k) (6/8 installed) [All]
+  [OK] All 32 packages are installed and up to date! (Toggle [Space] to reinstall)
+  ------------------------------------------------------------------------
+  > [-] [shell] Terminal & Shell (iTerm2, Fonts, OMZ, p10k) (8/8 up to date) [ ]
       [x] iTerm2                   3.7.6            - Terminal emulator for macOS
       [x] MesloLGS NF Font         Installed        - Nerd Font with icons
-      [ ] iTerm2 Font Config       missing          - Configure iTerm2 default font
+      [x] iTerm2 Font Config       MesloLGS 16      - Configure iTerm2 default font
       [x] Brogrammer Theme         Preset Ready     - High-contrast aesthetic theme
       [x] Oh My Zsh                964ddf7          - Community zsh framework
       [x] Powerlevel10k            d05a1b0          - Fast, aesthetic zsh theme
@@ -152,8 +162,8 @@ bun
       [x] Zsh Syntax Highlighting  0.8.0            - Syntax highlighting
 
   ------------------------------------------------------------------------
-  [ < Exit ]                                    [ Start Install (3) > ]
-  [j/k] Move  [g/G] Top/Bot  [h/l] Fold  [Space] Toggle  [m] Missing  [?] Help  [q] Quit
+  [ < Exit ]                                        [ All Up to Date > ]
+  [j/k/g/G] Move | [Space] Toggle | [m/u/a] Missing/Updates/All | [?] Help | [q] Quit
 ```
 
 #### Keyboard & Vim Controls:
@@ -164,17 +174,16 @@ bun
 - **`h` / `l` or `Left` / `Right`**: Fold (`[+]`) or unfold (`[-]`) category groups; pressing `h` on a child item jumps to its parent category.
 - **`o` / `c` or `f` / `z`**: Open (unfold) all groups (`o`), close (fold) all groups (`c`), or toggle all folds (`f`/`z`).
 - **`Space`**: Toggle selection for an individual package or an entire category group.
-- **`m` / `a` / `x`**: Select all missing packages (`m`), toggle all (`a`), or clear all selections (`x`).
-- **`Tab` / `Shift+Tab`**: Cycle focus between the package tree and the bottom action buttons.
+- **`m` / `u` / `a`**: Select missing & outdated packages (`m`), select updates only (`u`), or toggle all (`a`).
+- **`Tab` / `Shift+Tab`**: Cycle focus forward / backward between the package tree and the bottom action buttons.
 - **`?`**: Open/close the interactive keyboard shortcuts manual.
 - **`q` / `Esc`**: Exit the application.
 
-
 ---
 
-### System Inspection (`bun check`)
+### System & Update Inspection (`bun check`)
 
-Inspect what is installed and check current versions:
+Inspect installed versions, missing tools, and available updates:
 
 ```bash
 bun check
@@ -205,7 +214,7 @@ bun install vim-runtime java zoxide
 
 ### Update & Maintenance (`bun update`)
 
-Concurrently update Homebrew packages, casks, and pull latest commits for Oh My Zsh, Powerlevel10k, and plugins:
+Concurrently update packages, casks, and pull latest commits for Oh My Zsh, Powerlevel10k, and plugins:
 
 ```bash
 bun update
@@ -215,27 +224,59 @@ bun update
 
 ### System Diagnostics (`bun doctor`)
 
-Validate configuration files (`~/.zshrc`), PATH settings, and whether the `code` CLI is linked:
+Run a comprehensive health check across your OS, locale, PATH, package managers, Git identity, SSH keys, Nerd Fonts, shell hooks, language runtimes, and available updates:
 
 ```bash
 bun doctor
 ```
 
 ```text
- coffee-bun doctor - Diagnostic Report 
+  [System & Platform]
+  --------------------------------------------------------------------
+  [OK]    Operating System           macOS 26.5.2 (darwin/arm64)
+  [OK]    Terminal Locale            en_US.UTF-8 (UTF-8 ready)
+  [OK]    Local Bin PATH             /Users/user/.local/bin is in PATH
+  [OK]    Network (github.com)       Reachable (HTTPS 200 OK)
 
-  [OK] OS: macOS (darwin/arm64)
-  [OK] Homebrew: Installed and in PATH
-  [OK] VS Code CLI (`code`): Configured and accessible
-  [OK] Powerlevel10k: Active theme configured in ~/.zshrc
-  [OK] Zoxide: Shell hook configured in ~/.zshrc
+  [Package Managers & Toolchains]
+  --------------------------------------------------------------------
+  [OK]    Xcode CLI Tools            /Library/Developer/CommandLineTools
+  [OK]    Homebrew                   Homebrew 7.0.9
+  [OK]    Git                        git version 2.56.0
+  [OK]    Git Global Identity        Developer <dev@example.com>
+  [OK]    SSH Key                    ~/.ssh/id_ed25519 present
+
+  [Terminal, Shell & Fonts]
+  --------------------------------------------------------------------
+  [OK]    MesloLGS NF Nerd Font      Installed (/Users/user/Library/Fonts)
+  [OK]    Login Shell                /bin/zsh
+  [OK]    Oh My Zsh                  Installed (964ddf7)
+  [OK]    Powerlevel10k Theme        Active in ~/.zshrc
+  [OK]    Zoxide Shell Hook          Configured in ~/.zshrc
+
+  [Runtimes, Compilers & Editors]
+  --------------------------------------------------------------------
+  [OK]    Go Compiler                go version go1.27.2 darwin/arm64
+  [OK]    Python 3                   Python 3.15.0
+  [OK]    Node.js                    v26.12.0
+  [OK]    C/C++ Compiler             Apple clang version 21.0.0
+  [OK]    Ultimate Vim Runtime       Installed in ~/.vim_runtime
+  [OK]    VS Code CLI (`code`)       Linked in PATH (1.142.0)
+
+  [Bundle & Update Status]
+  --------------------------------------------------------------------
+  [OK]    Bundled Packages           All 32/32 supported packages are installed
+  [OK]    Package Updates            All installed packages are at their latest versions (0 outdated)
+
+  Diagnostic Summary: 22 passed, 0 warning(s), 0 issue(s)
+  [OK] Your workstation is healthy and all packages are up to date!
 ```
 
 ---
 
 ### Customization & Enterprise Setup (`bun.yaml`)
 
-coffee-bun supports organization and project-level customization via declarative YAML configuration. You can add internal company CLIs, custom VPNs, private registries, team stack presets, and lifecycle hooks without modifying any Go code.
+Coffee Bun supports organization and project-level customization via declarative YAML configuration. You can add internal company CLIs, custom VPNs, private registries, team stack presets, and lifecycle hooks without modifying any Go code.
 
 Place a `bun.yaml` file in your repository, home directory (`~/.config/coffee-bun/bun.yaml`), or enterprise MDM path (`/etc/coffee-bun/bun.yaml`):
 
@@ -278,58 +319,11 @@ bun --config ./team-bun.yaml
 bun check --config ./team-bun.yaml
 ```
 
-For the complete schema specification, MDM zero-touch deployment guides, and Go module extension patterns, see the [Customization & Enterprise Guide](docs/CUSTOMIZATION.md).
-
----
-
-## Architecture & Concurrency
-
-```mermaid
-flowchart TD
-    User["Developer"] --> CLI["bun / coffee-bun CLI"]
-    CLI --> Scanner["Auto Scanner (Goroutines)"]
-    Scanner --> UI["Interactive Tree UI (Fold/Unfold & Focusable Buttons)"]
-    
-    UI --> Installer["Concurrent Installer"]
-    
-    subgraph Parallel Workers
-        W1["Git & Shell Worker (OMZ / p10k / plugins / vimrc)"]
-        W2["Font & Theme Worker (MesloLGS NF / iTerm2 Config / Brogrammer)"]
-        W3["Homebrew Formula Worker (go, python, java, node, cli tools)"]
-        W4["Cask Worker (iTerm2, VS Code, Chrome)"]
-    end
-    
-    Installer --> W1
-    Installer --> W2
-    Installer --> W3
-    Installer --> W4
-    
-    W1 --> Events["Go Channel (InstallEvent)"]
-    W2 --> Events
-    W3 --> Events
-    W4 --> Events
-    
-    Events --> Stream["Real-time Progress Streaming"]
-    Stream --> Done["Post-Config, Shell Reload & CLI Linking"]
-```
-
----
-
-## Development
-
-```bash
-# Run unit tests
-make test
-
-# Build binary
-make build
-
-# Install locally to ~/.local/bin
-make install
-```
+For the complete schema specification and MDM zero-touch deployment guides, see the [Customization & Enterprise Guide](docs/CUSTOMIZATION.md).
 
 ---
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
