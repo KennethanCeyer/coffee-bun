@@ -50,6 +50,15 @@ func TestPrintStatusSummary(t *testing.T) {
 	if !strings.Contains(output, "3 installed, 1 missing") {
 		t.Errorf("expected '3 installed, 1 missing' in summary, got:\n%s", output)
 	}
+
+	// Test all up to date
+	allUpToDate := []model.Package{
+		{ID: "go", Name: "Go", Category: model.CategoryLanguages, Installed: true, Version: "1.26.0"},
+	}
+	out2 := PrintStatusSummary(allUpToDate)
+	if !strings.Contains(out2, "installed and up to date") {
+		t.Errorf("expected up to date message in output, got:\n%s", out2)
+	}
 }
 
 func TestStylesHelpers(t *testing.T) {

@@ -2,7 +2,7 @@
 #
 # Coffee Bun (bun) installer for macOS and Linux
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.sh | bash
 #
 
 set -e
@@ -69,7 +69,7 @@ else
         git -C "$SRC_DIR" pull --rebase
     else
         printf "  %s[..]%s Cloning Coffee Bun repository to %s...\n" "${BLUE}" "${RESET}" "$SRC_DIR"
-        git clone https://github.com/KennethanCeyer/bundle.git "$SRC_DIR"
+        git clone https://github.com/KennethanCeyer/coffee-bun.git "$SRC_DIR"
     fi
 fi
 

@@ -53,7 +53,8 @@ jobs:
           bun check
           bun doctor
 
-      - name: Verify Real Package Installation on Each OS
+      - name: Verify Real Package Installation (macOS & Linux)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           # 1. Install cross-platform Vim runtime, MesloLGS Nerd Fonts, and Zoxide via OS package manager
@@ -85,3 +86,37 @@ jobs:
           bun -C ci-bun.yaml check | grep -F "CI Custom Tool"
           rm -f ci-bun.yaml ~/ci-tool-installed.marker
 
+      - name: Verify Real Package Installation (Windows PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # 1. Install cross-platform Vim runtime, MesloLGS Nerd Fonts, and Zoxide via Windows package manager
+          bun install vim-runtime meslo-font zoxide
+
+          # 2. Verify installed status via bun check
+          $out = (bun check | Out-String)
+          Write-Host $out
+          if ($out -notmatch "Ultimate Vim Runtime") { throw "Vim Runtime check failed" }
+          if ($out -notmatch "MesloLGS NF Font") { throw "Meslo Font check failed" }
+          if ($out -notmatch "Zoxide") { throw "Zoxide check failed" }
+
+          # 3. Verify custom YAML configuration installation in PowerShell
+          @"
+          version: "1.0"
+          hooks:
+            pre_install: "Write-Output pre-install-ok"
+            post_install: "Write-Output post-install-ok"
+          packages:
+            - id: ci-custom-tool
+              name: "CI Custom Tool"
+              description: "End-to-end custom YAML installation test"
+              category: "CI Verification"
+              type: "script"
+              check_file: "~/ci-tool-installed.marker"
+              install_cmd: "Set-Content -Path `$HOME/ci-tool-installed.marker -Value installed"
+          "@ | Set-Content -Path ci-bun.yaml -Encoding utf8
+
+          bun -C ci-bun.yaml install ci-custom-tool
+          $customOut = (bun -C ci-bun.yaml check | Out-String)
+          if ($customOut -notmatch "CI Custom Tool") { throw "Custom YAML tool check failed" }
+          Remove-Item -Force ci-bun.yaml, "$HOME/ci-tool-installed.marker" -ErrorAction SilentlyContinue

@@ -1,12 +1,15 @@
 package checker
 
 import (
+	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/KennethanCeyer/coffee-bun/internal/model"
 )
@@ -133,6 +136,139 @@ func (c *Checker) CheckAll(pkgs []model.Package) []model.Package {
 	wg.Wait()
 	return result
 }
+
+// CheckAllWithUpdates inspects installation state and checks for available package updates concurrently
+func (c *Checker) CheckAllWithUpdates(pkgs []model.Package) []model.Package {
+	var wg sync.WaitGroup
+	var result []model.Package
+	var outdatedMap map[string]string
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		result = c.CheckAll(pkgs)
+	}()
+	go func() {
+		defer wg.Done()
+		outdatedMap = c.fetchOutdatedMap()
+	}()
+	wg.Wait()
+
+	for i := range result {
+		if !result[i].Installed {
+			continue
+		}
+		if result[i].BrewName != "" {
+			if latest, ok := outdatedMap[result[i].BrewName]; ok {
+				result[i].Outdated = true
+				result[i].LatestVersion = latest
+				continue
+			}
+			// Also check base formula name (e.g. tap/repo/name -> name)
+			parts := strings.Split(result[i].BrewName, "/")
+			if base := parts[len(parts)-1]; base != "" {
+				if latest, ok := outdatedMap[base]; ok {
+					result[i].Outdated = true
+					result[i].LatestVersion = latest
+					continue
+				}
+			}
+		}
+		if result[i].AptName != "" {
+			if latest, ok := outdatedMap[result[i].AptName]; ok {
+				result[i].Outdated = true
+				result[i].LatestVersion = latest
+				continue
+			}
+		}
+		// Check git repo behind-upstream status locally
+		if result[i].Type == model.TypeGitRepo || result[i].Type == model.TypeVimRuntime {
+			dir := result[i].InstallPath
+			if dir == "" && result[i].Type == model.TypeVimRuntime {
+				dir = filepath.Join(c.getHomeDir(), ".vim_runtime")
+			}
+			if dir != "" && c.isGitRepoBehind(dir) {
+				result[i].Outdated = true
+				result[i].LatestVersion = "new commits"
+			}
+		}
+	}
+
+	return result
+}
+
+type brewOutdatedJSON struct {
+	Formulae []struct {
+		Name           string `json:"name"`
+		CurrentVersion string `json:"current_version"`
+	} `json:"formulae"`
+	Casks []struct {
+		Name           string `json:"name"`
+		CurrentVersion string `json:"current_version"`
+	} `json:"casks"`
+}
+
+func (c *Checker) fetchOutdatedMap() map[string]string {
+	outdated := make(map[string]string)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+
+	if c.IsBrewInstalled() {
+		cmd := exec.CommandContext(ctx, "brew", "outdated", "--json=v2")
+		cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1")
+		if out, err := cmd.Output(); err == nil && len(out) > 0 {
+			var parsed brewOutdatedJSON
+			if json.Unmarshal(out, &parsed) == nil {
+				for _, f := range parsed.Formulae {
+					outdated[f.Name] = f.CurrentVersion
+				}
+				for _, k := range parsed.Casks {
+					outdated[k.Name] = k.CurrentVersion
+				}
+			}
+		}
+	}
+
+	if runtime.GOOS == "linux" {
+		if _, err := exec.LookPath("apt"); err == nil {
+			cmd := exec.CommandContext(ctx, "apt", "list", "--upgradable")
+			if out, err := cmd.Output(); err == nil {
+				for _, line := range strings.Split(string(out), "\n") {
+					if idx := strings.Index(line, "/"); idx > 0 {
+						pkgName := strings.TrimSpace(line[:idx])
+						fields := strings.Fields(line)
+						if len(fields) >= 2 {
+							outdated[pkgName] = fields[1]
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return outdated
+}
+
+func (c *Checker) isGitRepoBehind(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		return false
+	}
+	out, err := exec.Command("git", "-C", dir, "status", "-uno", "--porcelain=v2", "--branch").Output()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "# branch.ab ") {
+			// Format: # branch.ab +0 -2
+			fields := strings.Fields(line)
+			if len(fields) >= 4 && strings.HasPrefix(fields[3], "-") && fields[3] != "-0" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 
 func (c *Checker) checkFormulaOrBinary(pkg *model.Package) {
 	bin := pkg.BinaryName

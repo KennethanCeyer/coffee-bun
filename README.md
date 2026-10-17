@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KennethanCeyer/bundle/actions"><img src="https://github.com/KennethanCeyer/bundle/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+  <a href="https://github.com/KennethanCeyer/coffee-bun/actions"><img src="https://github.com/KennethanCeyer/coffee-bun/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go" alt="Go Version"></a>
-  <a href="https://github.com/KennethanCeyer/bundle"><img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-A67B5B?style=flat" alt="Platform"></a>
+  <a href="https://github.com/KennethanCeyer/coffee-bun"><img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-A67B5B?style=flat" alt="Platform"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
 </p>
 
@@ -98,7 +98,7 @@ While you enjoy your break, **Coffee Bun** takes care of the heavy lifting in th
 ### 1. macOS & Linux (One-Line Bootstrap)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.sh | bash
 ```
 
 ---
@@ -106,7 +106,7 @@ curl -fsSL https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.
 ### 2. Windows PowerShell (One-Line Bootstrap)
 
 ```powershell
-irm https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.ps1 | iex
 ```
 
 ---
@@ -114,7 +114,7 @@ irm https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.ps1 | i
 ### 3. Build from Source
 
 ```bash
-git clone https://github.com/KennethanCeyer/bundle.git
+git clone https://github.com/KennethanCeyer/coffee-bun.git
 cd bundle
 make install
 ```

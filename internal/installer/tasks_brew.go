@@ -17,11 +17,18 @@ func (r *Runner) installBrewFormulae(ctx context.Context, pkgs []model.Package, 
 }
 
 func (r *Runner) installSingleBrewFormula(ctx context.Context, p model.Package, ch chan<- model.InstallEvent) {
+	actionVerb := "Installing"
+	brewSubcmd := "install"
+	if p.Installed {
+		actionVerb = "Updating"
+		brewSubcmd = "upgrade"
+	}
+
 	ch <- model.InstallEvent{
 		PackageID: p.ID,
 		Name:      p.Name,
 		Status:    model.StatusInstalling,
-		Message:   "Installing formula via Homebrew...",
+		Message:   fmt.Sprintf("%s formula via Homebrew...", actionVerb),
 	}
 
 	lw := newLineWriter(func(line string) {
@@ -29,12 +36,12 @@ func (r *Runner) installSingleBrewFormula(ctx context.Context, p model.Package, 
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusInstalling,
-			Message:   "Installing formula via Homebrew...",
+			Message:   fmt.Sprintf("%s formula via Homebrew...", actionVerb),
 			LogLine:   line,
 		}
 	})
 
-	cmd := exec.CommandContext(ctx, "brew", "install", p.BrewName)
+	cmd := exec.CommandContext(ctx, "brew", brewSubcmd, p.BrewName)
 	cmd.Stdout = lw
 	cmd.Stderr = lw
 	err := cmd.Run()
@@ -46,7 +53,7 @@ func (r *Runner) installSingleBrewFormula(ctx context.Context, p model.Package, 
 				PackageID: p.ID,
 				Name:      p.Name,
 				Status:    model.StatusSuccess,
-				Message:   "Installed successfully",
+				Message:   "Installed and up to date",
 			}
 			return
 		}
@@ -58,7 +65,7 @@ func (r *Runner) installSingleBrewFormula(ctx context.Context, p model.Package, 
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusFailed,
-			Message:   "Homebrew install failed",
+			Message:   fmt.Sprintf("Homebrew %s failed", brewSubcmd),
 			LogLine:   last,
 			Error:     err,
 		}
@@ -67,11 +74,15 @@ func (r *Runner) installSingleBrewFormula(ctx context.Context, p model.Package, 
 			// verifyAndLinkJavaWithWatcher will transition Java to StatusWaitingAction and then StatusSuccess
 			return
 		}
+		doneMsg := "Installed successfully via Homebrew"
+		if p.Installed {
+			doneMsg = "Updated to latest version via Homebrew"
+		}
 		ch <- model.InstallEvent{
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusSuccess,
-			Message:   "Installed successfully via Homebrew",
+			Message:   doneMsg,
 		}
 	}
 }
@@ -83,11 +94,18 @@ func (r *Runner) installBrewCasks(ctx context.Context, pkgs []model.Package, ch 
 }
 
 func (r *Runner) installSingleBrewCask(ctx context.Context, p model.Package, ch chan<- model.InstallEvent) {
+	actionVerb := "Downloading and installing"
+	brewSubcmd := "install"
+	if p.Installed {
+		actionVerb = "Updating"
+		brewSubcmd = "upgrade"
+	}
+
 	ch <- model.InstallEvent{
 		PackageID: p.ID,
 		Name:      p.Name,
 		Status:    model.StatusInstalling,
-		Message:   fmt.Sprintf("Downloading and installing %s cask...", p.Name),
+		Message:   fmt.Sprintf("%s %s cask...", actionVerb, p.Name),
 	}
 
 	lw := newLineWriter(func(line string) {
@@ -95,12 +113,12 @@ func (r *Runner) installSingleBrewCask(ctx context.Context, p model.Package, ch 
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusInstalling,
-			Message:   fmt.Sprintf("Installing %s cask...", p.Name),
+			Message:   fmt.Sprintf("%s %s cask...", actionVerb, p.Name),
 			LogLine:   line,
 		}
 	})
 
-	cmd := exec.CommandContext(ctx, "brew", "install", "--cask", p.BrewName)
+	cmd := exec.CommandContext(ctx, "brew", brewSubcmd, "--cask", p.BrewName)
 	cmd.Stdout = lw
 	cmd.Stderr = lw
 	err := cmd.Run()
@@ -113,7 +131,7 @@ func (r *Runner) installSingleBrewCask(ctx context.Context, p model.Package, ch 
 					PackageID: p.ID,
 					Name:      p.Name,
 					Status:    model.StatusSuccess,
-					Message:   "Detected installed application",
+					Message:   "Installed and up to date",
 				}
 				return
 			}
@@ -126,16 +144,20 @@ func (r *Runner) installSingleBrewCask(ctx context.Context, p model.Package, ch 
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusFailed,
-			Message:   fmt.Sprintf("Cask install failed for %s", p.Name),
+			Message:   fmt.Sprintf("Cask %s failed for %s", brewSubcmd, p.Name),
 			LogLine:   last,
 			Error:     err,
 		}
 	} else {
+		doneMsg := fmt.Sprintf("%s installed successfully", p.Name)
+		if p.Installed {
+			doneMsg = fmt.Sprintf("%s updated to latest version", p.Name)
+		}
 		ch <- model.InstallEvent{
 			PackageID: p.ID,
 			Name:      p.Name,
 			Status:    model.StatusSuccess,
-			Message:   fmt.Sprintf("%s installed successfully", p.Name),
+			Message:   doneMsg,
 		}
 	}
 }

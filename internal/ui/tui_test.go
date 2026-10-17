@@ -262,14 +262,29 @@ func TestTwoButtonNavigation(t *testing.T) {
 		t.Fatalf("Expected focusBtnNext on Tab, got %v", m.focus)
 	}
 
-	// Press Left -> focus moves to focusBtnPrev (Left: Exit)
+	// Press Shift+Tab -> focus moves to previous button focusBtnPrev (Left: Exit)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m = updated.(Model)
+	if m.focus != focusBtnPrev {
+		t.Fatalf("Expected focusBtnPrev on Shift+Tab from focusBtnNext, got %v", m.focus)
+	}
+
+	// Press Shift+Tab again -> focus returns to focusTree
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m = updated.(Model)
+	if m.focus != focusTree {
+		t.Fatalf("Expected focusTree on Shift+Tab from focusBtnPrev, got %v", m.focus)
+	}
+
+	// Press Tab -> focusBtnNext, then Left -> focusBtnPrev, then Right -> focusBtnNext
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(Model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyLeft})
 	m = updated.(Model)
 	if m.focus != focusBtnPrev {
 		t.Fatalf("Expected focusBtnPrev on Left, got %v", m.focus)
 	}
 
-	// Press Right -> focus moves back to focusBtnNext (Right: Start Install)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
 	m = updated.(Model)
 	if m.focus != focusBtnNext {
@@ -282,6 +297,20 @@ func TestTwoButtonNavigation(t *testing.T) {
 	if m.focus != focusTree {
 		t.Fatalf("Expected focusTree on Up, got %v", m.focus)
 	}
+
+	// In stateComplete, Shift+Tab should toggle cleanly between focusBtnNext and focusBtnPrev
+	m.state = stateComplete
+	m.focus = focusBtnNext
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m = updated.(Model)
+	if m.focus != focusBtnPrev {
+		t.Fatalf("Expected focusBtnPrev on Shift+Tab in stateComplete, got %v", m.focus)
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = updated.(Model)
+	if m.focus != focusBtnNext {
+		t.Fatalf("Expected focusBtnNext on Tab in stateComplete, got %v", m.focus)
+	}
 }
 
 func TestSelectionAndFoldingShortcuts(t *testing.T) {
@@ -290,16 +319,32 @@ func TestSelectionAndFoldingShortcuts(t *testing.T) {
 	m.width = 80
 	m.height = 24
 
-	// Mark first package as installed, others missing
-	if len(m.packages) > 0 {
+	// Mark first package as installed, second as installed+outdated, others missing
+	if len(m.packages) > 1 {
 		m.packages[0].Installed = true
+		m.packages[0].Outdated = false
+		m.packages[1].Installed = true
+		m.packages[1].Outdated = true
+		m.packages[1].LatestVersion = "2.0.0"
 	}
 
-	// Test 'm' (select missing)
+	// Test 'm' (select missing and outdated)
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
 	m = updated.(Model)
-	if len(m.packages) > 0 && m.selected[m.packages[0].ID] {
-		t.Errorf("expected installed package to not be selected by 'm'")
+	if len(m.packages) > 1 {
+		if m.selected[m.packages[0].ID] {
+			t.Errorf("expected up-to-date installed package to not be selected by 'm'")
+		}
+		if !m.selected[m.packages[1].ID] {
+			t.Errorf("expected outdated installed package to be selected by 'm'")
+		}
+	}
+
+	// Test 'u' (select updates only)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	m = updated.(Model)
+	if len(m.packages) > 1 && !m.selected[m.packages[1].ID] {
+		t.Errorf("expected outdated package to be selected by 'u'")
 	}
 
 	// Test 'a' (toggle select all)
@@ -345,15 +390,31 @@ func TestScanningAndCompleteViews(t *testing.T) {
 	m.width = 80
 	m.height = 24
 
+	// Shimmer text across ticks
+	for tick := 0; tick < 25; tick++ {
+		m.shimmerTick = tick
+		shimmer := RenderShimmerText("Installing selected packages...", tick)
+		if shimmer == "" {
+			t.Errorf("expected non-empty shimmer output at tick %d", tick)
+		}
+	}
+
 	// Scanning view
 	m.state = stateScanning
 	scanOut := m.View()
-	if !strings.Contains(scanOut, "Checking environment") {
+	if !strings.Contains(scanOut, "available updates") {
 		t.Errorf("expected scanning view text, got %q", scanOut)
 	}
 
-	// Complete view
+	// Complete view when 0 items were run (all up to date)
 	m.state = stateComplete
+	m.installOrder = nil
+	zeroCompOut := m.View()
+	if !strings.Contains(zeroCompOut, "Everything is already installed and up to date") {
+		t.Errorf("expected friendly up-to-date message when 0 items run, got %q", zeroCompOut)
+	}
+
+	// Complete view with items
 	m.installOrder = []string{"git", "fail-pkg"}
 	m.installItems["git"] = &installItemProgress{
 		ID:      "git",
@@ -379,3 +440,4 @@ func TestScanningAndCompleteViews(t *testing.T) {
 		t.Errorf("expected quitting message, got %q", quitOut)
 	}
 }
+

@@ -68,6 +68,13 @@ func (c *Configurator) ConfigurePowerlevel10k() error {
 		newContent = p10kTheme + "\n" + content
 	}
 
+	reLang := regexp.MustCompile(`(?m)^#\s*export LANG=en_US\.UTF-8.*$`)
+	if reLang.MatchString(newContent) {
+		newContent = reLang.ReplaceAllString(newContent, "export LANG=\"en_US.UTF-8\"\nexport LC_ALL=\"en_US.UTF-8\"")
+	} else if !strings.Contains(newContent, "export LANG=") {
+		newContent += "\n# Added by Coffee Bun: English UTF-8 locale\nexport LANG=\"en_US.UTF-8\"\nexport LC_ALL=\"en_US.UTF-8\"\n"
+	}
+
 	return os.WriteFile(c.zshrc, []byte(newContent), 0644)
 }
 
@@ -182,7 +189,7 @@ func (c *Configurator) LinkVSCodeCLI() (string, error) {
 
 func (c *Configurator) readOrCreateZshrc() (string, error) {
 	if _, err := os.Stat(c.zshrc); os.IsNotExist(err) {
-		defaultContent := "# Created by Coffee Bun\nexport PATH=\"$HOME/.local/bin:/opt/homebrew/bin:$PATH\"\n"
+		defaultContent := "# Created by Coffee Bun\nexport LANG=\"en_US.UTF-8\"\nexport LC_ALL=\"en_US.UTF-8\"\nexport PATH=\"$HOME/.local/bin:/opt/homebrew/bin:$PATH\"\n"
 		if err := os.WriteFile(c.zshrc, []byte(defaultContent), 0644); err != nil {
 			return "", err
 		}

@@ -67,12 +67,17 @@ func (m Model) renderScanningView() string {
 	}
 
 	spinner := spinnerFrames[m.spinnerIdx]
+	availW := m.width - 10
+	if availW < 20 {
+		availW = 20
+	}
+	scanText := ansi.Truncate("Checking environment, installed tools, and available updates...", availW, "...")
 	line := fmt.Sprintf("  [%s] %s",
 		SelectedStyle.Render(spinner),
-		NormalStyle.Render("Checking environment and installed tools..."),
+		RenderShimmerText(scanText, m.shimmerTick),
 	)
 	b.WriteString(ansi.Truncate(line, m.width-1, "") + "\n\n")
-	b.WriteString(ansi.Truncate(MutedStyle.Render("  Please wait while components are verified..."), m.width-1, "") + "\n")
+	b.WriteString(ansi.Truncate(MutedStyle.Render("  Please wait while components and versions are verified..."), m.width-1, "") + "\n")
 	return b.String()
 }
 
@@ -104,9 +109,9 @@ func (m Model) renderHelpView() string {
 		{"Space", "Toggle selection of current item or entire category group"},
 		{"Enter", "Toggle item selection, fold/unfold group, or activate button"},
 		{"a", "Toggle select all / deselect all packages"},
-		{"m", "Select only missing (uninstalled) packages"},
-		{"r", "Refresh and re-scan environment status"},
-		{"Tab / Shift+Tab", "Move focus between package tree and bottom action buttons"},
+		{"m / u", "Select missing & outdated (m) / Select updates only (u)"},
+		{"r", "Refresh and re-scan environment and update status"},
+		{"Tab / Shift+Tab", "Move focus forward / backward between tree and action buttons"},
 		{"?", "Open / close this keyboard shortcuts guide"},
 		{"q / Esc / Ctrl+c", "Quit Coffee Bun"},
 	}
@@ -147,10 +152,14 @@ func (m *Model) renderTreeView() string {
 	}
 
 	// Status Summary
-	var totalReady, totalMissing, totalSelected int
+	var totalReady, totalOutdated, totalMissing, totalSelected int
 	for _, p := range m.packages {
 		if p.Installed {
-			totalReady++
+			if p.Outdated {
+				totalOutdated++
+			} else {
+				totalReady++
+			}
 		} else {
 			totalMissing++
 		}
@@ -158,11 +167,29 @@ func (m *Model) renderTreeView() string {
 			totalSelected++
 		}
 	}
-	summaryText := fmt.Sprintf("  Status: %s ready, %s missing | %s selected to install",
-		BadgeSuccess.Render(fmt.Sprintf("%d", totalReady)),
-		BadgeMissing.Render(fmt.Sprintf("%d", totalMissing)),
-		SelectedStyle.Render(fmt.Sprintf("%d", totalSelected)),
-	)
+
+	var summaryText string
+	if totalMissing == 0 && totalOutdated == 0 && totalSelected == 0 && len(m.packages) > 0 {
+		summaryText = fmt.Sprintf("  %s %s %s",
+			BadgeSuccess.Render("[OK]"),
+			NormalStyle.Render(fmt.Sprintf("All %d packages are installed and up to date!", len(m.packages))),
+			MutedStyle.Render("(Toggle [Space] to reinstall)"),
+		)
+	} else if totalMissing == 0 && totalOutdated > 0 {
+		summaryText = fmt.Sprintf("  %s %s up-to-date, %s update(s) available | %s selected",
+			BadgeMissing.Render("[UP]"),
+			BadgeSuccess.Render(fmt.Sprintf("%d", totalReady)),
+			BadgeMissing.Render(fmt.Sprintf("%d", totalOutdated)),
+			SelectedStyle.Render(fmt.Sprintf("%d", totalSelected)),
+		)
+	} else {
+		summaryText = fmt.Sprintf("  Status: %s ready, %s update(s), %s missing | %s selected",
+			BadgeSuccess.Render(fmt.Sprintf("%d", totalReady)),
+			BadgeMissing.Render(fmt.Sprintf("%d", totalOutdated)),
+			BadgeMissing.Render(fmt.Sprintf("%d", totalMissing)),
+			SelectedStyle.Render(fmt.Sprintf("%d", totalSelected)),
+		)
+	}
 	b.WriteString(ansi.Truncate(summaryText, m.width-1, "") + "\n")
 
 	rows := m.getVisibleRows()
@@ -228,12 +255,15 @@ func (m *Model) renderTreeView() string {
 				foldIcon = "[+]"
 			}
 
-			var totalInGroup, installedInGroup, selectedInGroup int
+			var totalInGroup, installedInGroup, outdatedInGroup, selectedInGroup int
 			for _, id := range row.group.PackageIDs {
 				totalInGroup++
 				if p, ok := pkgMap[id]; ok {
 					if p.Installed {
 						installedInGroup++
+						if p.Outdated {
+							outdatedInGroup++
+						}
 					}
 					if m.selected[id] {
 						selectedInGroup++
@@ -242,8 +272,10 @@ func (m *Model) renderTreeView() string {
 			}
 
 			var countBadge string
-			if installedInGroup == totalInGroup {
-				countBadge = BadgeSuccess.Render(fmt.Sprintf("(%d/%d ready)", installedInGroup, totalInGroup))
+			if installedInGroup == totalInGroup && outdatedInGroup == 0 {
+				countBadge = BadgeSuccess.Render(fmt.Sprintf("(%d/%d up to date)", installedInGroup, totalInGroup))
+			} else if installedInGroup == totalInGroup && outdatedInGroup > 0 {
+				countBadge = BadgeMissing.Render(fmt.Sprintf("(%d/%d ready, %d update)", installedInGroup, totalInGroup, outdatedInGroup))
 			} else {
 				countBadge = BadgeMissing.Render(fmt.Sprintf("(%d/%d ready, %d missing)", installedInGroup, totalInGroup, totalInGroup-installedInGroup))
 			}
@@ -273,7 +305,13 @@ func (m *Model) renderTreeView() string {
 		} else {
 			// Item row
 			checkMark := "[ ]"
-			if row.pkg.Installed {
+			if row.pkg.Installed && row.pkg.Outdated {
+				if m.selected[row.pkg.ID] {
+					checkMark = BadgeMissing.Render("[↑]")
+				} else {
+					checkMark = MutedStyle.Render("[ ]")
+				}
+			} else if row.pkg.Installed {
 				if m.selected[row.pkg.ID] {
 					checkMark = BadgeSuccess.Render("[x]")
 				} else {
@@ -299,7 +337,13 @@ func (m *Model) renderTreeView() string {
 			nameCol := fmt.Sprintf("%-*s", nameWidth, ansi.Truncate(row.pkg.Name, nameWidth, ""))
 
 			var detail string
-			if row.pkg.Installed {
+			if row.pkg.Installed && row.pkg.Outdated {
+				upText := "update avail"
+				if row.pkg.LatestVersion != "" {
+					upText = "-> " + row.pkg.LatestVersion
+				}
+				detail = BadgeMissing.Render(fmt.Sprintf("%-13s", ansi.Truncate(upText, 13, "")))
+			} else if row.pkg.Installed {
 				ver := row.pkg.Version
 				if ver == "" {
 					ver = "installed"
@@ -343,7 +387,13 @@ func (m *Model) renderTreeView() string {
 
 	// 2 Clean, intuitive buttons on Left and Right
 	btnLeft := renderButton("< Exit", m.focus == focusBtnPrev, false)
-	btnRight := renderButton(fmt.Sprintf("Start Install (%d) >", totalSelected), m.focus == focusBtnNext, true)
+	rightLabel := fmt.Sprintf("Start Install (%d) >", totalSelected)
+	if totalSelected == 0 && totalMissing == 0 && totalOutdated == 0 {
+		rightLabel = "All Up to Date >"
+	} else if totalMissing == 0 && totalSelected > 0 {
+		rightLabel = fmt.Sprintf("Update Selected (%d) >", totalSelected)
+	}
+	btnRight := renderButton(rightLabel, m.focus == focusBtnNext, true)
 
 	leftW := lipgloss.Width(btnLeft)
 	rightW := lipgloss.Width(btnRight)
@@ -355,7 +405,7 @@ func (m *Model) renderTreeView() string {
 	b.WriteString(ansi.Truncate(buttonsLine, m.width-1, "") + "\n")
 
 	// Hint line
-	hintLine := MutedStyle.Render("  [j/k/g/G] Move | [Space] Toggle | [a/m] All/Missing | [?] Shortcuts | [q] Quit")
+	hintLine := MutedStyle.Render("  [j/k/g/G] Move | [Space] Toggle | [m/u/a] Missing/Updates/All | [?] Help | [q] Quit")
 	b.WriteString(ansi.Truncate(hintLine, m.width-1, ""))
 
 	return b.String()
@@ -365,9 +415,19 @@ func (m *Model) renderInstallingView() string {
 	var b strings.Builder
 
 	spinner := spinnerFrames[m.spinnerIdx]
-	titleLine := fmt.Sprintf(" %s  %s",
+	statusBanner := m.activeStatus
+	if statusBanner == "" {
+		statusBanner = "Installing and configuring selected packages..."
+	}
+	availBanner := m.width - 20
+	if availBanner < 16 {
+		availBanner = 16
+	}
+	bannerTrunc := ansi.Truncate(statusBanner, availBanner, "...")
+	titleLine := fmt.Sprintf(" %s  %s  %s",
 		SelectedStyle.Render(fmt.Sprintf("[%s]", spinner)),
 		Bold("Coffee Bun"),
+		RenderShimmerText(bannerTrunc, m.shimmerTick),
 	)
 	b.WriteString(ansi.Truncate(titleLine, m.width-1, "") + "\n")
 
@@ -435,7 +495,12 @@ func (m *Model) renderInstallingView() string {
 		case model.StatusInstalling:
 			spin := SelectedStyle.Render(fmt.Sprintf("[%s]", spinnerFrames[m.spinnerIdx]))
 			nameStr := Bold(ansi.Truncate(item.Name, 22, ""))
-			msgStr := NormalStyle.Render(item.Message)
+			availMsg := m.width - 34
+			if availMsg < 12 {
+				availMsg = 12
+			}
+			plainMsg := ansi.Truncate(item.Message, availMsg, "...")
+			msgStr := RenderShimmerText(plainMsg, m.shimmerTick)
 			header := fmt.Sprintf("   %s %-22s: %s", spin, nameStr, msgStr)
 			allVisualLines = append(allVisualLines, visualLine{isHeader: true, text: header})
 
@@ -589,11 +654,19 @@ func (m *Model) renderCompleteView() string {
 		}
 	}
 
-	summaryText := fmt.Sprintf("  Completed: %s succeeded, %s failed (Total: %d)",
-		BadgeSuccess.Render(fmt.Sprintf("%d", successCount)),
-		BadgeError.Render(fmt.Sprintf("%d", failCount)),
-		len(m.installOrder),
-	)
+	var summaryText string
+	if len(m.installOrder) == 0 {
+		summaryText = fmt.Sprintf("  %s %s",
+			BadgeSuccess.Render("[OK]"),
+			NormalStyle.Render("Everything is already installed and up to date! No changes were needed."),
+		)
+	} else {
+		summaryText = fmt.Sprintf("  Completed: %s succeeded, %s failed (Total: %d)",
+			BadgeSuccess.Render(fmt.Sprintf("%d", successCount)),
+			BadgeError.Render(fmt.Sprintf("%d", failCount)),
+			len(m.installOrder),
+		)
+	}
 	b.WriteString(ansi.Truncate(summaryText, m.width-1, "") + "\n")
 
 	viewportHeight := m.height - (headerLines + 4)
@@ -607,23 +680,52 @@ func (m *Model) renderCompleteView() string {
 		msg         string
 	}
 	var compRows []completeRow
-	for _, id := range m.installOrder {
-		item := m.installItems[id]
-		if item == nil {
-			continue
+	if len(m.installOrder) == 0 {
+		var installedCount, outdatedCount int
+		for _, p := range m.packages {
+			if p.Installed {
+				installedCount++
+				if p.Outdated {
+					outdatedCount++
+				}
+			}
 		}
-		if item.Status == model.StatusSuccess {
-			compRows = append(compRows, completeRow{
+		compRows = append(compRows,
+			completeRow{
 				statusBadge: BadgeSuccess.Render("[OK]"),
-				name:        item.Name,
-				msg:         item.Message,
-			})
-		} else if item.Status == model.StatusFailed {
-			compRows = append(compRows, completeRow{
-				statusBadge: BadgeError.Render("[FAIL]"),
-				name:        item.Name,
-				msg:         item.Message,
-			})
+				name:        "Installed Packages",
+				msg:         fmt.Sprintf("All %d monitored packages are ready on %s", installedCount, model.PlatformDisplayName()),
+			},
+			completeRow{
+				statusBadge: BadgeSuccess.Render("[OK]"),
+				name:        "Update Status",
+				msg:         fmt.Sprintf("%d outdated packages found (all components at latest version)", outdatedCount),
+			},
+			completeRow{
+				statusBadge: SelectedStyle.Render("[TIP]"),
+				name:        "Force Reinstall",
+				msg:         "Select '< Back to Selection' and press [Space] on any item to reinstall",
+			},
+		)
+	} else {
+		for _, id := range m.installOrder {
+			item := m.installItems[id]
+			if item == nil {
+				continue
+			}
+			if item.Status == model.StatusSuccess {
+				compRows = append(compRows, completeRow{
+					statusBadge: BadgeSuccess.Render("[OK]"),
+					name:        item.Name,
+					msg:         item.Message,
+				})
+			} else if item.Status == model.StatusFailed {
+				compRows = append(compRows, completeRow{
+					statusBadge: BadgeError.Render("[FAIL]"),
+					name:        item.Name,
+					msg:         item.Message,
+				})
+			}
 		}
 	}
 
@@ -683,7 +785,7 @@ func (m *Model) renderCompleteView() string {
 	buttonsLine := fmt.Sprintf("  %s%s%s", btnBack, strings.Repeat(" ", gap), btnDone)
 	b.WriteString(ansi.Truncate(buttonsLine, m.width-1, "") + "\n")
 
-	hintsLine := MutedStyle.Render("  [Tab/←/→] Buttons | [j/k/g/G] Scroll | [Enter] Execute | [q] Quit")
+	hintsLine := MutedStyle.Render("  [Tab/Shift+Tab/←/→] Buttons | [j/k/g/G] Scroll | [Enter] Execute | [q] Quit")
 	b.WriteString(ansi.Truncate(hintsLine, m.width-1, ""))
 
 	return b.String()

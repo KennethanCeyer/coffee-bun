@@ -130,3 +130,90 @@ func RenderASCIIHeader(width int) string {
 	}
 	return b.String()
 }
+
+var (
+	shimmerBaseStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A67B5B"))
+	shimmerEdgeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D4A373")).Bold(true)
+	shimmerMidStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#F5EBE0")).Bold(true)
+	shimmerPeakStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFDF9")).Bold(true)
+)
+
+// RenderShimmerText renders text with an animated left-to-right repeating highlight window.
+// The window width is computed as max(minFixedWidth, proportionalWidth) so it scales cleanly.
+func RenderShimmerText(text string, tick int) string {
+	runes := []rune(text)
+	n := len(runes)
+	if n == 0 {
+		return ""
+	}
+
+	const minFixedWidth = 6
+	propWidth := n / 4
+	winWidth := minFixedWidth
+	if propWidth > winWidth {
+		winWidth = propWidth
+	}
+
+	if tick < 0 {
+		tick = -tick
+	}
+
+	totalSpan := n + winWidth
+	winStart := (tick % totalSpan) - (winWidth / 2)
+	winEnd := winStart + winWidth
+	winCenter := winStart + (winWidth / 2)
+	coreRadius := winWidth / 6
+	if coreRadius < 1 {
+		coreRadius = 1
+	}
+	midRadius := winWidth / 3
+	if midRadius < 2 {
+		midRadius = 2
+	}
+
+	zoneFor := func(i int) int {
+		if i >= winStart && i < winEnd {
+			dist := i - winCenter
+			if dist < 0 {
+				dist = -dist
+			}
+			if dist <= coreRadius {
+				return 3 // Peak
+			}
+			if dist <= midRadius {
+				return 2 // Mid
+			}
+			return 1 // Edge
+		}
+		return 0 // Base
+	}
+
+	renderChunk := func(zone int, chunk string) string {
+		switch zone {
+		case 3:
+			return shimmerPeakStyle.Render(chunk)
+		case 2:
+			return shimmerMidStyle.Render(chunk)
+		case 1:
+			return shimmerEdgeStyle.Render(chunk)
+		default:
+			return shimmerBaseStyle.Render(chunk)
+		}
+	}
+
+	var b strings.Builder
+	curZone := zoneFor(0)
+	startIdx := 0
+	for i := 1; i < n; i++ {
+		z := zoneFor(i)
+		if z != curZone {
+			b.WriteString(renderChunk(curZone, string(runes[startIdx:i])))
+			curZone = z
+			startIdx = i
+		}
+	}
+	b.WriteString(renderChunk(curZone, string(runes[startIdx:n])))
+	return b.String()
+}
+
+

@@ -1,6 +1,6 @@
 # Coffee Bun (bun) Installer for Windows PowerShell
 # Usage:
-#   irm https://raw.githubusercontent.com/KennethanCeyer/bundle/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/KennethanCeyer/coffee-bun/main/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
@@ -32,7 +32,7 @@ if ((Test-Path ".git") -and (Test-Path "go.mod")) {
         git -C $srcDir pull --rebase
     } else {
         Write-Host "  [..] Cloning Coffee Bun repository to $srcDir..." -ForegroundColor Cyan
-        git clone https://github.com/KennethanCeyer/bundle.git $srcDir
+        git clone https://github.com/KennethanCeyer/coffee-bun.git $srcDir
     }
 }
 

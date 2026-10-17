@@ -95,6 +95,7 @@ type Model struct {
 	actionReason         string
 	lastBgPoll           time.Time
 	spinnerIdx           int
+	shimmerTick          int
 	installChan          <-chan model.InstallEvent
 	quitting             bool
 }
@@ -121,7 +122,7 @@ func NewModelWithConfig(explicitConfigPath string) Model {
 		r.SetHooks(cfg.Hooks)
 	}
 
-	initialStatus := "Inspecting macOS developer environment..."
+	initialStatus := fmt.Sprintf("Scanning %s environment and checking for updates...", model.PlatformDisplayName())
 	if configPath != "" {
 		initialStatus = fmt.Sprintf("Using config: %s", filepath.Base(configPath))
 	}
@@ -154,7 +155,7 @@ func (m Model) Init() tea.Cmd {
 
 func scanPackagesCmd(c *checker.Checker, pkgs []model.Package) tea.Cmd {
 	return func() tea.Msg {
-		checked := c.CheckAll(pkgs)
+		checked := c.CheckAllWithUpdates(pkgs)
 		return scanDoneMsg{pkgs: checked}
 	}
 }
@@ -167,7 +168,7 @@ func bgScanCmd(c *checker.Checker, pkgs []model.Package) tea.Cmd {
 }
 
 func tickCmd() tea.Cmd {
-	return tea.Tick(120*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(65*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -277,6 +278,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "m":
 			if m.state == stateTree {
 				m.selectAllMissing()
+			}
+
+		case "u":
+			if m.state == stateTree {
+				m.selectAllUpdates()
 			}
 
 		case "a":
@@ -403,21 +409,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "tab":
-			if m.focus == focusTree {
-				m.focus = focusBtnNext
-			} else if m.focus == focusBtnNext {
-				m.focus = focusBtnPrev
+			if m.state == stateComplete {
+				if m.focus == focusBtnNext {
+					m.focus = focusBtnPrev
+				} else {
+					m.focus = focusBtnNext
+				}
 			} else {
-				m.focus = focusTree
+				if m.focus == focusTree {
+					m.focus = focusBtnNext
+				} else if m.focus == focusBtnNext {
+					m.focus = focusBtnPrev
+				} else {
+					m.focus = focusTree
+				}
 			}
 
-		case "shift+tab":
-			if m.focus == focusTree {
-				m.focus = focusBtnPrev
-			} else if m.focus == focusBtnPrev {
-				m.focus = focusBtnNext
+		case "shift+tab", "btab":
+			if m.state == stateComplete {
+				if m.focus == focusBtnNext {
+					m.focus = focusBtnPrev
+				} else {
+					m.focus = focusBtnNext
+				}
 			} else {
-				m.focus = focusTree
+				if m.focus == focusBtnNext {
+					m.focus = focusBtnPrev
+				} else if m.focus == focusBtnPrev {
+					m.focus = focusTree
+				} else {
+					m.focus = focusBtnPrev
+				}
 			}
 
 		case "up", "k":
@@ -531,7 +553,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tickMsg:
-		m.spinnerIdx = (m.spinnerIdx + 1) % len(spinnerFrames)
+		m.shimmerTick++
+		if m.shimmerTick%2 == 0 {
+			m.spinnerIdx = (m.spinnerIdx + 1) % len(spinnerFrames)
+		}
 		// Periodic background polling in tree mode
 		if m.state == stateTree && time.Since(m.lastBgPoll) > 3*time.Second {
 			m.lastBgPoll = time.Now()
@@ -542,7 +567,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case scanDoneMsg:
 		m.packages = msg.pkgs
 		for _, p := range m.packages {
-			if !p.Installed {
+			if !p.Installed || p.Outdated {
 				m.selected[p.ID] = true
 			}
 		}
@@ -550,6 +575,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case bgScanDoneMsg:
+		// Preserve Outdated and LatestVersion metadata from initial scan when still installed
+		oldMeta := make(map[string]model.Package, len(m.packages))
+		for _, op := range m.packages {
+			oldMeta[op.ID] = op
+		}
+		for i := range msg.pkgs {
+			if msg.pkgs[i].Installed {
+				if prev, ok := oldMeta[msg.pkgs[i].ID]; ok {
+					msg.pkgs[i].Outdated = prev.Outdated
+					msg.pkgs[i].LatestVersion = prev.LatestVersion
+				}
+			}
+		}
 		m.packages = msg.pkgs
 		return m, nil
 
@@ -592,7 +630,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForInstallEvent(m.installChan)
 
 	case installDoneMsg:
-		m.packages = m.checker.CheckAll(m.packages)
+		m.packages = m.checker.CheckAllWithUpdates(m.packages)
+		m.selected = make(map[string]bool)
+		for _, p := range m.packages {
+			if !p.Installed || p.Outdated {
+				m.selected[p.ID] = true
+			}
+		}
 		m.actionSnippet = ""
 		m.actionTitle = ""
 		m.actionReason = ""
@@ -663,7 +707,17 @@ func (m *Model) toggleSelectAll() {
 
 func (m *Model) selectAllMissing() {
 	for _, p := range m.packages {
-		if !p.Installed {
+		if !p.Installed || p.Outdated {
+			m.selected[p.ID] = true
+		} else {
+			m.selected[p.ID] = false
+		}
+	}
+}
+
+func (m *Model) selectAllUpdates() {
+	for _, p := range m.packages {
+		if p.Installed && p.Outdated {
 			m.selected[p.ID] = true
 		} else {
 			m.selected[p.ID] = false
@@ -680,6 +734,8 @@ func (m Model) startInstallation() (tea.Model, tea.Cmd) {
 	}
 
 	if len(targetPkgs) == 0 {
+		m.installOrder = nil
+		m.installItems = make(map[string]*installItemProgress)
 		m.state = stateComplete
 		m.focus = focusBtnNext
 		return m, nil
@@ -693,18 +749,23 @@ func (m Model) startInstallation() (tea.Model, tea.Cmd) {
 
 	for _, p := range targetPkgs {
 		m.installOrder = append(m.installOrder, p.ID)
+		queueMsg := "Queued for installation"
+		if p.Installed {
+			queueMsg = "Queued for update"
+		}
 		m.installItems[p.ID] = &installItemProgress{
 			ID:        p.ID,
 			Name:      p.Name,
 			Category:  p.Category,
 			Status:    model.StatusPending,
-			Message:   "Queued for installation",
+			Message:   queueMsg,
 			UpdatedAt: time.Now(),
 		}
 	}
 
-	m.activeStatus = "Installing selected packages..."
+	m.activeStatus = "Installing and updating selected packages..."
 	ctx := context.Background()
 	m.installChan = m.runner.InstallAsync(ctx, targetPkgs)
 	return m, waitForInstallEvent(m.installChan)
 }
+

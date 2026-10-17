@@ -14,6 +14,9 @@ import (
 
 // Execute runs the root CLI command
 func Execute() error {
+	_ = os.Setenv("LANG", "en_US.UTF-8")
+	_ = os.Setenv("LC_ALL", "en_US.UTF-8")
+	_ = os.Setenv("LC_MESSAGES", "en_US.UTF-8")
 	return NewRootCmd().Execute()
 }
 
